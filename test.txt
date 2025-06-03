@@ -1,0 +1,46 @@
+# Start from Amazon Linux 2023 base image
+FROM amazonlinux:2023
+
+# Set environment variables for Node.js version
+ENV NODE_VERSION=v18.18.2
+ENV DISTRO=linux-x64
+
+# Install required system dependencies
+RUN yum update -y && \
+    yum install -y curl tar gcc-c++ make && \
+    mkdir -p /usr/local/lib/nodejs && \
+    curl -O https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-$DISTRO.tar.xz && \
+    tar -xJf node-$NODE_VERSION-$DISTRO.tar.xz -C /usr/local/lib/nodejs && \
+    rm node-$NODE_VERSION-$DISTRO.tar.xz && \
+    ln -s /usr/local/lib/nodejs/node-$NODE_VERSION/bin/node /usr/bin/node && \
+    ln -s /usr/local/lib/nodejs/node-$NODE_VERSION/bin/npm /usr/bin/npm && \
+    ln -s /usr/local/lib/nodejs/node-$NODE_VERSION/bin/npx /usr/bin/npx
+
+# Set working directory
+WORKDIR /usr/local/clo/app/package/
+
+# Copy application files into container
+COPY . .
+
+# Install app dependencies and build
+RUN rm -f package-lock.json && \
+    npm install -f && \
+    npm run build
+
+# Optional: copy npmrc if needed
+# COPY .npmrc /root/.npmrc
+
+# Set custom npm global prefix
+RUN npm config set prefix /usr/local
+
+# Install PM2 globally
+RUN npm install -g pm2
+
+# Make all files executable (adjust if needed for production)
+RUN chmod -R 777 *.*
+
+# Expose app port
+EXPOSE 3000
+
+# Start app with PM2
+CMD ["pm2-runtime", "server.js"]
